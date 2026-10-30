@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="pt-br">
+<meta charset="utf-8">
+<title>Relatório de Tuning PostgreSQL</title>
+<style>
+  body {
+    font: 15px Arial;
+    margin: 32px;
+    color: #202938
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%
+  }
+
+  td,
+  th {
+    border: 1px solid #ccd2da;
+    padding: 9px;
+    text-align: left
+  }
+
+  th {
+    background: #eef2f7
+  }
+
+  pre {
+    white-space: pre-wrap;
+    background: #f4f6f8;
+    padding: 12px
+  }
+
+  details {
+    margin: 12px 0
+  }
+</style>
+<h1>Relatório de Tuning PostgreSQL</h1>
+<p>Banco: tuning_vendas | Host: localhost |
+  Repetições por consulta: 5</p>
+<h2>Resumo — mediana do Execution Time</h2>
+<table>
+  <tr>
+    <th>Etapa</th>
+    <th>Consulta</th>
+    <th>Repetições</th>
+    <th>Mediana (ms)</th>
+    <th>Mínimo (ms)</th>
+    <th>Máximo (ms)</th>
+  </tr>
+  <tr>
+    <td>ANTES</td>
+    <td>1</td>
+    <td>5</td>
+    <td>0.195</td>
+    <td>0.123</td>
+    <td>2.545</td>
+  </tr>
+  <tr>
+    <td>ANTES</td>
+    <td>2</td>
+    <td>5</td>
+    <td>241.950</td>
+    <td>237.151</td>
+    <td>339.274</td>
+  </tr>
+  <tr>
+    <td>ANTES</td>
+    <td>3</td>
+    <td>5</td>
+    <td>1199.894</td>
+    <td>1155.102</td>
+    <td>1293.900</td>
+  </tr>
+  <tr>
+    <td>DEPOIS</td>
+    <td>1</td>
+    <td>5</td>
+    <td>0.196</td>
+    <td>0.132</td>
+    <td>0.315</td>
+  </tr>
+  <tr>
+    <td>DEPOIS</td>
+    <td>2</td>
+    <td>5</td>
+    <td>0.090</td>
+    <td>0.086</td>
+    <td>0.366</td>
+  </tr>
+  <tr>
+    <td>DEPOIS</td>
+    <td>3</td>
+    <td>5</td>
+    <td>1194.708</td>
+    <td>1172.271</td>
+    <td>1214.953</td>
+  </tr>
+</table>
+<h2>Comandos SQL executados</h2>
+<details>
+  <summary>1. 03_medicao_antes.sql — executado</summary>
+  <pre>DROP INDEX IF EXISTS loja.idx_pedidos_data_status;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>2. 03_medicao_antes.sql — executado</summary>
+  <pre>DROP INDEX IF EXISTS loja.idx_pedidos_cliente_data;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>3. 03_medicao_antes.sql — executado</summary>
+  <pre>DROP INDEX IF EXISTS loja.idx_itens_pedido_pedido;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>4. 03_medicao_antes.sql — executado</summary>
+  <pre>DROP INDEX IF EXISTS loja.idx_produtos_categoria;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>5. 03_medicao_antes.sql — executado</summary>
+  <pre>SET search_path TO loja, public;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>6. 03_medicao_antes.sql — executado</summary>
+  <pre>SELECT COUNT(*) FROM itens_pedido;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>7. 03_medicao_antes.sql — medido 5 vezes</summary>
+  <pre>EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)
+SELECT id, cliente_id, data_pedido, status, valor_total
+FROM pedidos
+WHERE data_pedido &gt;= TIMESTAMP &#x27;2024-01-01&#x27;
+  AND data_pedido &lt;  TIMESTAMP &#x27;2024-04-01&#x27;
+  AND status = &#x27;PAGO&#x27;
+ORDER BY data_pedido DESC
+LIMIT 100;</pre>
+  <p>Tempos (ms): [2.545, 0.27, 0.195, 0.17, 0.123] | Mediana: 0.195</p>
+</details>
+<details>
+  <summary>8. 03_medicao_antes.sql — medido 5 vezes</summary>
+  <pre>EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)
+SELECT p.id, p.data_pedido, p.status,
+       SUM(ip.quantidade * ip.preco_unitario) AS total_itens
+FROM pedidos p
+JOIN itens_pedido ip ON ip.pedido_id = p.id
+WHERE p.cliente_id = 1234
+GROUP BY p.id, p.data_pedido, p.status
+ORDER BY p.data_pedido DESC
+LIMIT 100;</pre>
+  <p>Tempos (ms): [237.151, 261.892, 241.95, 339.274, 240.228] | Mediana: 241.95</p>
+</details>
+<details>
+  <summary>9. 03_medicao_antes.sql — medido 5 vezes</summary>
+  <pre>EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)
+SELECT pr.categoria,
+       COUNT(DISTINCT ip.pedido_id) AS quantidade_pedidos,
+       SUM(ip.quantidade) AS unidades_vendidas,
+       SUM(ip.quantidade * ip.preco_unitario) AS faturamento
+FROM itens_pedido ip
+JOIN produtos pr ON pr.id = ip.produto_id
+JOIN pedidos p ON p.id = ip.pedido_id
+WHERE p.status IN (&#x27;PAGO&#x27;, &#x27;ENVIADO&#x27;)
+GROUP BY pr.categoria
+ORDER BY faturamento DESC;</pre>
+  <p>Tempos (ms): [1293.9, 1174.686, 1199.894, 1264.306, 1155.102] | Mediana: 1199.894</p>
+</details>
+<details>
+  <summary>10. 04_aplicar_tuning.sql — executado</summary>
+  <pre>SET search_path TO loja, public;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>11. 04_aplicar_tuning.sql — executado</summary>
+  <pre>CREATE INDEX IF NOT EXISTS idx_pedidos_data_status
+    ON pedidos (data_pedido, status);</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>12. 04_aplicar_tuning.sql — executado</summary>
+  <pre>CREATE INDEX IF NOT EXISTS idx_pedidos_cliente_data
+    ON pedidos (cliente_id, data_pedido DESC);</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>13. 04_aplicar_tuning.sql — executado</summary>
+  <pre>CREATE INDEX IF NOT EXISTS idx_itens_pedido_pedido
+    ON itens_pedido (pedido_id);</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>14. 04_aplicar_tuning.sql — executado</summary>
+  <pre>CREATE INDEX IF NOT EXISTS idx_produtos_categoria
+    ON produtos (categoria);</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>15. 04_aplicar_tuning.sql — executado</summary>
+  <pre>ANALYZE pedidos;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>16. 04_aplicar_tuning.sql — executado</summary>
+  <pre>ANALYZE itens_pedido;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>17. 04_aplicar_tuning.sql — executado</summary>
+  <pre>ANALYZE produtos;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>18. 04_aplicar_tuning.sql — executado</summary>
+  <pre>SELECT schemaname, tablename, indexname, indexdef
+FROM pg_indexes
+WHERE schemaname = &#x27;loja&#x27;
+ORDER BY tablename, indexname;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>19. 05_medicao_depois.sql — executado</summary>
+  <pre>SET search_path TO loja, public;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>20. 05_medicao_depois.sql — medido 5 vezes</summary>
+  <pre>EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)
+SELECT id, cliente_id, data_pedido, status, valor_total
+FROM pedidos
+WHERE data_pedido &gt;= TIMESTAMP &#x27;2024-01-01&#x27;
+  AND data_pedido &lt;  TIMESTAMP &#x27;2024-04-01&#x27;
+  AND status = &#x27;PAGO&#x27;
+ORDER BY data_pedido DESC
+LIMIT 100;</pre>
+  <p>Tempos (ms): [0.196, 0.132, 0.176, 0.198, 0.315] | Mediana: 0.196</p>
+</details>
+<details>
+  <summary>21. 05_medicao_depois.sql — medido 5 vezes</summary>
+  <pre>EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)
+SELECT p.id, p.data_pedido, p.status,
+       SUM(ip.quantidade * ip.preco_unitario) AS total_itens
+FROM pedidos p
+JOIN itens_pedido ip ON ip.pedido_id = p.id
+WHERE p.cliente_id = 1234
+GROUP BY p.id, p.data_pedido, p.status
+ORDER BY p.data_pedido DESC
+LIMIT 100;</pre>
+  <p>Tempos (ms): [0.366, 0.093, 0.086, 0.09, 0.09] | Mediana: 0.09</p>
+</details>
+<details>
+  <summary>22. 05_medicao_depois.sql — medido 5 vezes</summary>
+  <pre>EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)
+SELECT pr.categoria,
+       COUNT(DISTINCT ip.pedido_id) AS quantidade_pedidos,
+       SUM(ip.quantidade) AS unidades_vendidas,
+       SUM(ip.quantidade * ip.preco_unitario) AS faturamento
+FROM itens_pedido ip
+JOIN produtos pr ON pr.id = ip.produto_id
+JOIN pedidos p ON p.id = ip.pedido_id
+WHERE p.status IN (&#x27;PAGO&#x27;, &#x27;ENVIADO&#x27;)
+GROUP BY pr.categoria
+ORDER BY faturamento DESC;</pre>
+  <p>Tempos (ms): [1200.102, 1172.271, 1214.953, 1194.708, 1178.304] | Mediana: 1194.708</p>
+</details>
+<details>
+  <summary>23. 06_validacao_e_manutencao.sql — executado</summary>
+  <pre>SET search_path TO loja, public;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>24. 06_validacao_e_manutencao.sql — executado</summary>
+  <pre>SELECT
+    relname AS tabela,
+    pg_size_pretty(pg_table_size(relid)) AS tamanho_tabela,
+    pg_size_pretty(pg_indexes_size(relid)) AS tamanho_indices,
+    pg_size_pretty(pg_total_relation_size(relid)) AS tamanho_total
+FROM pg_catalog.pg_statio_user_tables
+WHERE schemaname = &#x27;loja&#x27;
+ORDER BY pg_total_relation_size(relid) DESC;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>25. 06_validacao_e_manutencao.sql — executado</summary>
+  <pre>SELECT
+    relname AS tabela,
+    indexrelname AS indice,
+    idx_scan,
+    idx_tup_read,
+    idx_tup_fetch
+FROM pg_stat_user_indexes
+WHERE schemaname = &#x27;loja&#x27;
+ORDER BY relname, indexrelname;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>26. 06_validacao_e_manutencao.sql — executado</summary>
+  <pre>ANALYZE clientes;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>27. 06_validacao_e_manutencao.sql — executado</summary>
+  <pre>ANALYZE produtos;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>28. 06_validacao_e_manutencao.sql — executado</summary>
+  <pre>ANALYZE pedidos;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<details>
+  <summary>29. 06_validacao_e_manutencao.sql — executado</summary>
+  <pre>ANALYZE itens_pedido;</pre>
+  <p>Tempos (ms): [] | Mediana: —</p>
+</details>
+<p>Os planos completos, buffers e configurações estão no arquivo JSON associado.</p>
+
+</html>
